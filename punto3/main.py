@@ -6,6 +6,16 @@ from datetime import datetime
 
 app = FastAPI()
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Configuración S3
 S3_BUCKET = 'user-federico-ueia-so'
 s3 = boto3.client('s3', region_name='us-east-2')
