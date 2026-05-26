@@ -21,8 +21,6 @@ S3_BUCKET = 'user-federico-ueia-so'
 s3 = boto3.client('s3', region_name='us-east-2')
 
 # Configuración RDS
-from dotenv import load_dotenv
-load_dotenv()
 
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
@@ -56,6 +54,13 @@ def init_db():
 def startup():
     init_db()
 
+
+@app.post("/simple")
+async def simple(imagen: UploadFile = File(...)):
+    return {
+        "nombre": imagen.filename
+    }
+
 @app.post("/imagenes/")
 async def subir_imagen(
     usuario: str = Form(...),
@@ -63,54 +68,48 @@ async def subir_imagen(
 ):
     # Validar formato
     extension = imagen.filename.split('.')[-1].lower()
+
     if extension not in ['png', 'jpg', 'jpeg']:
-        raise HTTPException(status_code=415, detail="Formato no permitido. Use PNG o JPG/JPEG.")
+        raise HTTPException(
+            status_code=415,
+            detail="Formato no permitido. Use PNG o JPG/JPEG."
+        )
 
     # Subir a S3
     ruta_s3 = f"{usuario}/{imagen.filename}"
+
     contenido = await imagen.read()
-    s3.put_object(Bucket=S3_BUCKET, Key=ruta_s3, Body=contenido)
+
+    s3.put_object(
+        Bucket=S3_BUCKET,
+        Key=ruta_s3,
+        Body=contenido
+    )
 
     # Registrar en RDS
     fecha = datetime.now()
+
     conn = get_db()
+
     with conn.cursor() as cursor:
         cursor.execute(
-            'INSERT INTO imagenes (usuario, ruta_s3, fecha_creacion) VALUES (%s, %s, %s)',
+            '''
+            INSERT INTO imagenes
+            (usuario, ruta_s3, fecha_creacion)
+            VALUES (%s, %s, %s)
+            ''',
             (usuario, ruta_s3, fecha)
         )
+
     conn.commit()
     conn.close()
 
-    return {"mensaje": "Imagen subida correctamente", "ruta_s3": ruta_s3, "fecha": fecha}
-
-@app.get("/imagenes/")
-def obtener_imagen(usuario: str, nombre_imagen: str):
-    # Buscar en RDS
-    ruta_s3 = f"{usuario}/{nombre_imagen}"
-    conn = get_db()
-    with conn.cursor() as cursor:
-        cursor.execute(
-            'SELECT * FROM imagenes WHERE usuario=%s AND ruta_s3=%s',
-            (usuario, ruta_s3)
-        )
-        resultado = cursor.fetchone()
-    conn.close()
-
-    if not resultado:
-        raise HTTPException(status_code=404, detail="Usuario o imagen no encontrados.")
-
-    # Generar URL prefirmada
-    url = s3.generate_presigned_url(
-        'get_object',
-        Params={'Bucket': S3_BUCKET, 'Key': ruta_s3},
-        ExpiresIn=3600
-    )
-
     return {
-        "url": url,
-        "fecha_creacion": resultado['fecha_creacion']
+        "mensaje": "Imagen subida correctamente",
+        "ruta_s3": ruta_s3,
+        "fecha": fecha
     }
 
 from mangum import Mangum
-handler = Mangum(app)
+
+handler = Mangum(app, lifespan="off")
