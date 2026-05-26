@@ -110,6 +110,34 @@ async def subir_imagen(
         "fecha": fecha
     }
 
+@app.get("/imagenes/")
+def obtener_imagen(usuario: str, nombre_imagen: str):
+    # Buscar en RDS
+    ruta_s3 = f"{usuario}/{nombre_imagen}"
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            'SELECT * FROM imagenes WHERE usuario=%s AND ruta_s3=%s',
+            (usuario, ruta_s3)
+        )
+        resultado = cursor.fetchone()
+    conn.close()
+
+    if not resultado:
+        raise HTTPException(status_code=404, detail="Usuario o imagen no encontrados.")
+
+    # Generar URL prefirmada
+    url = s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': S3_BUCKET, 'Key': ruta_s3},
+        ExpiresIn=3600
+    )
+    return {
+        "url": url,
+        "fecha_creacion": resultado['fecha_creacion']
+    }
+
+
 from mangum import Mangum
 
 handler = Mangum(app, lifespan="off")
