@@ -114,3 +114,65 @@ Contenido de texto3.txt: Contenido de texto3.txt
 ### Qué cambia con múltiples archivos en boto3
 
 Con un solo archivo se llama `upload_file` y `download_file` una vez. Con múltiples archivos se itera sobre una lista con un `for` loop, llamando estas funciones por cada archivo.
+
+## 2. Despliegue de aplicación FastAPI en Amazon EC2
+
+### Repositorio
+El código de la aplicación se encuentra en la carpeta `test_docker_fastapi/` de este repositorio.
+
+### Creación de la instancia EC2
+- AMI: Ubuntu Server 24.04 LTS
+- Instance type: t2.micro (Free tier)
+- Key pair: taller-key (RSA, .pem)
+- Region: us-east-2
+
+### Configuración de la instancia
+
+Conexión a la instancia:
+```bash
+ssh -i taller-key.pem ubuntu@3.144.5.83
+```
+
+Instalación de dependencias:
+```bash
+sudo apt update && sudo apt install -y git python3 python3-pip uvicorn
+git clone https://github.com/fedriki060/Taller-AWS-EIA-SO.git
+cd Taller-AWS-EIA-SO/test_docker_fastapi
+pip install -r requirements.txt --break-system-packages
+```
+
+### Configuración del daemon (systemd)
+
+Archivo `/etc/systemd/system/fastapi.service`:
+```ini
+[Unit]
+Description=FastAPI app
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Taller-AWS-EIA-SO/test_docker_fastapi
+ExecStart=/usr/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Activación del servicio:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable fastapi
+sudo systemctl start fastapi
+```
+
+### Security Group
+Se agregó una regla de entrada para permitir acceso al puerto 8000 desde cualquier IP (0.0.0.0/0).
+
+### Verificación
+La aplicación quedó accesible en: http://3.144.5.83:8000
+
+El servicio sobrevive reinicios de la instancia gracias a `systemctl enable fastapi`.
+
+### Capturas de pantalla
+Ver carpeta `capturas/punto2/` en el repositorio.
