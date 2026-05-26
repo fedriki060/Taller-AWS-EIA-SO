@@ -101,3 +101,6 @@ def obtener_imagen(usuario: str, nombre_imagen: str):
         "url": url,
         "fecha_creacion": resultado['fecha_creacion']
     }
+
+    from mangum import Mangum
+    handler = Mangum(app)
