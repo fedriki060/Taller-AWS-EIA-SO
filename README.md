@@ -1,178 +1,93 @@
 # Taller AWS - Sistemas Operativos - Universidad EIA
 
-## 1. Gestión de archivos en Amazon S3
+## Requisitos previos
+- Python 3.11+
+- AWS CLI configurado con credenciales válidas
+- Docker Desktop
+- Cuenta de AWS con acceso a S3, RDS, ECR y Lambda
 
-### a. Creación del bucket
+## Clonar el repositorio
+```bash
+git clone https://github.com/fedriki060/Taller-AWS-EIA-SO.git
+cd Taller-AWS-EIA-SO
+```
 
-Bucket creado desde la consola web de AWS con el nombre `user-federico-ueia-so` en la región `us-east-2`.
+---
 
-### b. Operaciones usando AWS CLI
+## 1. Gestión de archivos en S3
 
-```cmd
+Bucket utilizado: `user-federico-ueia-so` en `us-east-2`.
+
+**Con AWS CLI:**
+```bash
 aws configure
-AWS Access Key ID [None]: ****************
-AWS Secret Access Key [None]: ****************
-Default region name [None]: us-east-1
-Default output format [None]: json
-
-aws sts get-caller-identity
-{
-    "UserId": "841162702019",
-    "Account": "841162702019",
-    "Arn": "arn:aws:iam::841162702019:root"
-}
-
-aws configure set region us-east-2
-
-aws s3 ls
-2026-05-25 19:30:03 user-federico-ueia-so
-
-echo Este es mi archivo de prueba > %USERPROFILE%\archivo_prueba.txt
-
-aws s3 cp %USERPROFILE%\archivo_prueba.txt s3://user-federico-ueia-so/
-upload: .\archivo_prueba.txt to s3://user-federico-ueia-so/archivo_prueba.txt
-
-aws s3 ls s3://user-federico-ueia-so/
-2026-05-25 19:30:47         31 archivo_prueba.txt
-
-aws s3 cp s3://user-federico-ueia-so/archivo_prueba.txt -
-Este es mi archivo de prueba
-
-mkdir %USERPROFILE%\descargas_s3
-
-aws s3 cp s3://user-federico-ueia-so/archivo_prueba.txt %USERPROFILE%\descargas_s3\
-download: s3://user-federico-ueia-so/archivo_prueba.txt to descargas_s3\archivo_prueba.txt
-
-type %USERPROFILE%\descargas_s3\archivo_prueba.txt
-Este es mi archivo de prueba
-
-mkdir %USERPROFILE%\multi
-
-echo Archivo uno > %USERPROFILE%\multi\archivo1.txt
-echo Archivo dos > %USERPROFILE%\multi\archivo2.txt
-echo Archivo tres > %USERPROFILE%\multi\archivo3.txt
-
-aws s3 cp %USERPROFILE%\multi\ s3://user-federico-ueia-so/multi/ --recursive
-upload: multi\archivo2.txt to s3://user-federico-ueia-so/multi/archivo2.txt
-upload: multi\archivo3.txt to s3://user-federico-ueia-so/multi/archivo3.txt
-upload: multi\archivo1.txt to s3://user-federico-ueia-so/multi/archivo1.txt
-
-aws s3 ls s3://user-federico-ueia-so/multi/
-2026-05-25 19:34:56         14 archivo1.txt
-2026-05-25 19:34:56         14 archivo2.txt
-2026-05-25 19:34:56         15 archivo3.txt
-
-mkdir %USERPROFILE%\descargas_s3\multi
-
-aws s3 cp s3://user-federico-ueia-so/multi/ %USERPROFILE%\descargas_s3\multi\ --recursive
-download: s3://user-federico-ueia-so/multi/archivo1.txt to descargas_s3\multi\archivo1.txt
-download: s3://user-federico-ueia-so/multi/archivo2.txt to descargas_s3\multi\archivo2.txt
-download: s3://user-federico-ueia-so/multi/archivo3.txt to descargas_s3\multi\archivo3.txt
-
-dir %USERPROFILE%\descargas_s3\multi
- Volume in drive C has no label.
- Volume Serial Number is 5333-5F8A
-
- Directory of C:\Users\RicoB\descargas_s3\multi
-
-05/25/2026  07:34 PM    <DIR>          .
-05/25/2026  07:33 PM    <DIR>          ..
-05/25/2026  07:34 PM                14 archivo1.txt
-05/25/2026  07:34 PM                14 archivo2.txt
-05/25/2026  07:34 PM                15 archivo3.txt
-               3 File(s)             43 bytes
-               2 Dir(s)  46,024,986,624 bytes free
+aws s3 mb s3://user-federico-ueia-so --region us-east-2
+aws s3 cp archivo.txt s3://user-federico-ueia-so/
+aws s3 cp s3://user-federico-ueia-so/archivo.txt ./descargas/
+aws s3 cp ./carpeta/ s3://user-federico-ueia-so/carpeta/ --recursive
 ```
 
-### Qué cambia con múltiples archivos
-
-Con un solo archivo se usa `cp` apuntando al archivo directamente. Con múltiples archivos se agrega el flag `--recursive` apuntando a una carpeta, lo que hace que el CLI procese todos los archivos dentro de ella de una sola vez.
-
-### c. Operaciones usando boto3
-
-El script `s3_operations.py` realiza las mismas operaciones que el CLI pero desde Python usando la librería boto3.
-
-**Resultado de ejecución:**
-Archivo cargado correctamente
-En bucket: boto3/archivo_prueba.txt
-Archivo descargado correctamente
-Contenido: Este es mi archivo de prueba
-
-texto1.txt cargado correctamente
-texto2.txt cargado correctamente
-texto3.txt cargado correctamente
-En bucket: boto3/multiples/texto1.txt
-En bucket: boto3/multiples/texto2.txt
-En bucket: boto3/multiples/texto3.txt
-texto1.txt descargado correctamente
-texto2.txt descargado correctamente
-texto3.txt descargado correctamente
-Contenido de texto1.txt: Contenido de texto1.txt
-Contenido de texto2.txt: Contenido de texto2.txt
-Contenido de texto3.txt: Contenido de texto3.txt
-
-### Qué cambia con múltiples archivos en boto3
-
-Con un solo archivo se llama `upload_file` y `download_file` una vez. Con múltiples archivos se itera sobre una lista con un `for` loop, llamando estas funciones por cada archivo.
-
-## 2. Despliegue de aplicación FastAPI en Amazon EC2
-
-### Repositorio
-El código de la aplicación se encuentra en la carpeta `test_docker_fastapi/` de este repositorio.
-
-### Creación de la instancia EC2
-- AMI: Ubuntu Server 24.04 LTS
-- Instance type: t2.micro (Free tier)
-- Key pair: taller-key (RSA, .pem)
-- Region: us-east-2
-
-### Configuración de la instancia
-
-Conexión a la instancia:
+**Con boto3:**
 ```bash
-ssh -i taller-key.pem ubuntu@3.144.5.83
+cd punto1
+pip install boto3
+python s3_operations.py
 ```
 
-Instalación de dependencias:
+---
+
+## 2. Despliegue de FastAPI en EC2
+
 ```bash
-sudo apt update && sudo apt install -y git python3 python3-pip uvicorn
+ssh -i taller-key.pem ubuntu@<IP_PUBLICA>
 git clone https://github.com/fedriki060/Taller-AWS-EIA-SO.git
 cd Taller-AWS-EIA-SO/test_docker_fastapi
 pip install -r requirements.txt --break-system-packages
 ```
 
-### Configuración del daemon (systemd)
-
-Archivo `/etc/systemd/system/fastapi.service`:
-```ini
-[Unit]
-Description=FastAPI app
-After=network.target
-
-[Service]
-User=ubuntu
-WorkingDirectory=/home/ubuntu/Taller-AWS-EIA-SO/test_docker_fastapi
-ExecStart=/usr/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Activación del servicio:
+Configurar el daemon:
 ```bash
+sudo nano /etc/systemd/system/fastapi.service
 sudo systemctl daemon-reload
 sudo systemctl enable fastapi
 sudo systemctl start fastapi
 ```
 
-### Security Group
-Se agregó una regla de entrada para permitir acceso al puerto 8000 desde cualquier IP (0.0.0.0/0).
+La app queda accesible en `http://<IP_PUBLICA>:8000`. El servicio arranca automáticamente con la instancia.
 
-### Verificación
-La aplicación quedó accesible en: http://3.144.5.83:8000
+Ver capturas en `capturas/punto2/`.
 
-El servicio sobrevive reinicios de la instancia gracias a `systemctl enable fastapi`.
+---
 
-### Capturas de pantalla
-Ver carpeta `capturas/punto2/` en el repositorio.
+## 3. FastAPI con S3, RDS, Docker y Lambda
+
+Crear archivo `.env` en `punto3/`:
+```
+DB_HOST=taller-db.cryq66muka7c.us-east-2.rds.amazonaws.com
+DB_USER=admin
+DB_PASSWORD=tu_password
+DB_NAME=tallerdb
+```
+
+**Ejecutar localmente:**
+```bash
+cd punto3
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+Documentación en: http://127.0.0.1:8000/docs
+
+**Construir y subir imagen a ECR:**
+```bash
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 841162702019.dkr.ecr.us-east-2.amazonaws.com
+
+docker buildx build --platform linux/amd64 --provenance=false \
+  -t 841162702019.dkr.ecr.us-east-2.amazonaws.com/fastapi-taller:latest --push .
+```
+
+**Despliegue en Lambda:**
+1. Crear función Lambda desde la imagen ECR
+2. Configurar variables de entorno: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+3. Habilitar Function URL con Auth type `NONE` y CORS habilitado
+
+Ver capturas en `capturas/punto3/`.
